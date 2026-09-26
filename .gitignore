@@ -1,0 +1,15 @@
+# Dependencies. In `link:` development mode this directory holds JUNCTIONS into
+# the DSH app's own node_modules (see tools/dev-link.ps1). Committing those
+# would give every clone broken links pointing at somebody else's install path,
+# so the directory is never tracked.
+node_modules/
+
+# Packed artifacts from `tools/dev-link.ps1 -Mode pack`. Regenerated on demand,
+# and a stale tarball is worse than none because the profile may still point at
+# it.
+*.tgz
+
+# Local scratch: anything a developer drops in to try something.
+.DS_Store
+Thumbs.db
+*.log

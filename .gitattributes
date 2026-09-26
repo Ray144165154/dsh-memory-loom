@@ -1,0 +1,9 @@
+# Normalise line endings to LF inside the repository, so a Windows checkout and
+# a Linux CI see the same bytes and a one-line edit never shows up as a
+# whole-file diff.
+* text=auto eol=lf
+
+# Windows-only helper scripts, checked out with CRLF so they behave the same in
+# every editor and shell on the platform they target.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf

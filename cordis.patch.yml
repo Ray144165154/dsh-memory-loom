@@ -1,0 +1,54 @@
+# dsh-memory-loom — DSH bundle patch.
+#
+# This file is the plugin's "mount declaration". DSH composes the profile's
+# plugin tree by stacking each bundle's patch in `dsh.profile.bundles` order,
+# so installing the package (`dsh plugin --profile web add ...`) appends this
+# row to the loader without any hand-editing of the profile.
+#
+#   install:  dsh plugin --profile web add link:<path to this checkout>
+#
+# Anything under `config:` below is passed to the plugin's `apply(ctx, config)`
+# and validated by the schemastery `Config` exported from index.js. The loader
+# passes ONLY this sub-object to the plugin, so plugin settings must live here —
+# a top-level key would be silently ignored.
+
+- insert:
+    - id: memory-loom
+      name: dsh-memory-loom
+      config:
+        # Master switch. When false the plugin still loads and its tools exist,
+        # but nothing is injected into the prompt and nothing is auto-extracted.
+        enabled: true
+
+        # How many memories are injected into the system prompt per model call.
+        recallLimit: 6
+
+        # Minimum combined score for a memory to be injected. Raise to reduce
+        # noise; this is the main precision/recall dial.
+        minScore: 0.12
+
+        # Inject the recalled block into the system prompt at all.
+        injectSection: true
+
+        # Heuristically capture durable memories from completed turns.
+        # This is rule-based, not LLM-based. See README "What autoExtract is not".
+        autoExtract: true
+        autoExtractMax: 3
+
+        # Association ("联想") spreading activation over the link graph.
+        associationHops: 1
+        associationDecay: 0.35
+
+        # Recency half-life in days, used by the ranking function.
+        halfLifeDays: 45
+
+        # Scope memories to the session's workspace. When true, a memory
+        # recorded in one project is not recalled in another.
+        workspaceScoped: true
+
+        # Hard ceiling on stored records; the lowest-scoring records are evicted
+        # past this bound so the store cannot grow without limit.
+        maxRecords: 5000
+
+        # How many past sessions `memory_backfill` scans per invocation.
+        backfillSessions: 50
