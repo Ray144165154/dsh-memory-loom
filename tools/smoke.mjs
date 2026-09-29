@@ -560,6 +560,46 @@ check('the anchor schema is empty, so the card cannot edit settings it does not 
   assert.ok(Object.keys(plugin.Config({})).length > 0, 'the real Config must still declare its keys')
 })
 
+console.log('\nsettings service: both version lines')
+
+check('the anchor registers on the 0.1.x contract', () => {
+  const calls = []
+  const ctx = { settings: { register: (...args) => calls.push(args) } }
+  assert.equal(plugin.registerSettingsAnchor(ctx), true)
+  assert.equal(calls.length, 1, 'register must be called exactly once')
+  assert.equal(calls[0][0], plugin.SETTINGS_NAMESPACE, 'the namespace must match the card key')
+  assert.deepEqual(calls[0][2], { applies: 'live' })
+})
+
+check('the anchor degrades without throwing on the 0.2.x contract', () => {
+  // 0.2.x replaced register() with a SettingsForms service whose pages come from
+  // the plugin's own Config. Calling the removed method would reject
+  // Service.init, and a tree entry that fails to activate can fail the boot.
+  const ctx = { settings: { configure() {}, describe: () => [], update: async () => {} } }
+  assert.equal(plugin.registerSettingsAnchor(ctx), false)
+})
+
+check('a missing settings service does not throw either', () => {
+  assert.equal(plugin.registerSettingsAnchor({}), false)
+  assert.equal(plugin.registerSettingsAnchor(undefined), false)
+})
+
+check('the plugin never calls the removed settings.register unguarded', () => {
+  // The guard is what keeps the 0.2.x line bootable, so assert it is still the
+  // only *code* path to that call. Comments are stripped first: the explanation
+  // of this very guard names the method, and counting documentation as a call
+  // site would make the check fail for writing it down.
+  const source = readFileSync(join(root, 'index.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .replace(/^\s*\/\/.*$/gmu, '')
+  const callSites = source.match(/settings\.register\(/gu) ?? []
+  assert.equal(callSites.length, 1, `expected exactly one settings.register call site, found ${callSites.length}`)
+  assert.ok(
+    /typeof settings\?\.register === 'function'/u.test(source),
+    'the single call site must sit behind the feature check',
+  )
+})
+
 check('the patch config keys are exactly the ones Config declares', async () => {
   let yaml
   try {

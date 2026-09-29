@@ -246,18 +246,28 @@ window.__ModuleLoader__.load({
           document.head.appendChild(style)
           return () => style.remove()
         }, 'memory-loom styles')
-        // `key` MUST equal the host half's SETTINGS_NAMESPACE. The Plugins tab
-        // enumerates registered settings namespaces and dispatches this slot
-        // once per namespace, so a key that matches no namespace renders
-        // nothing and reports nothing — the card simply never appears.
-        // `tools/smoke.mjs` asserts this equality so the two cannot drift.
-        ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-          name: 'settings.plugin.item',
-          key: 'memory-loom',
-          order: 40,
-          locale: NS,
-          inject: () => ({ callApi }),
-        }, MemoryCard))
+        // The card slot is a 0.1.x contract. The Plugins configuration tab there
+        // enumerated registered settings namespaces and dispatched this slot once
+        // per namespace — so `key` MUST equal the host half's SETTINGS_NAMESPACE,
+        // and a key matching no namespace renders nothing and reports nothing.
+        // `tools/smoke.mjs` asserts that equality.
+        //
+        // On the 0.2.x line the slot does not exist at all: plugin configuration
+        // pages are generated from the plugin's own Config schema, and
+        // `settings.plugin.item` has zero occurrences across the whole tree.
+        // Registration is therefore guarded, so a shell without the slot costs
+        // the panel rather than the entire browser half of the plugin.
+        try {
+          ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+            name: 'settings.plugin.item',
+            key: 'memory-loom',
+            order: 40,
+            locale: NS,
+            inject: () => ({ callApi }),
+          }, MemoryCard))
+        } catch (error) {
+          console.warn('[dsh-memory-loom] no settings card slot in this shell:', error?.message ?? error)
+        }
       },
     }
   },

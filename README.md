@@ -72,6 +72,30 @@ $bin  = "$app\node_modules\@deepseek-ai\dsh\lib\bin.js"
 
 ---
 
+## 版本线兼容性（dsh 0.1.x / 0.2.x）
+
+DSH 的 0.1.x 与 0.2.x 之间有**破坏性契约差异**。本插件对两条线都做了处理，差异是逐个读包内自带的 `.d.ts` 得出的，不是从调用点推断的：
+
+| 契约 | 0.1.x（桌面版 0.9.2 / dsh 0.1.5-rc.2） | 0.2.x（desktop 0.2.0-rc.1 / dsh 0.2.0-rc.1） | 本插件的处理 |
+|---|---|---|---|
+| settings 服务 | `ctx.settings.register(ns, schema, { applies })` 存在 | **已移除**。`ctx.settings` 变成 `SettingsForms`：命名空间即 profile 条目 id，配置页从插件自己的 `Config` **自动生成**（`SettingsDescriptor.autoGenerate`） | `registerSettingsAnchor()` 特性探测，有 `register` 才调用 |
+| 设置卡片槽位 | `settings.plugin.item`，按已注册的 settings 命名空间逐个分发 | **整棵树 0 处匹配**（在 254 个 `@deepseek-ai` 包里查过） | 卡片注册包在 `try/catch` 里；0.2.x 上不显示卡片 |
+| `defineTool` / `ctx.tools.register` | 存在 | 存在 | 无需改动 |
+| `defineDomain` / `domainTable` | 存在 | 存在 | 无需改动 |
+| `systemPrompt.section` | 存在 | 存在 | 无需改动 |
+| `sessionQuery.listSessions` / `readSession` | 存在 | 存在 | 无需改动 |
+
+**为什么必须特性探测，而不是比版本号**：这些包在 npm 上独立发版，`latest` dist-tag 目前指向无关的 `0.0.1-rc.x` 构建——版本号不可靠，探 API 才可靠。
+
+**为什么这个探测是必须的，而不是优化**：`settings.register` 在 0.2.x 上不存在，直接调用会抛 `TypeError` → `Service.init` 拒绝 → 插件激活失败。而**一个未激活的 loader 条目不只失去该插件的功能，还可能让整个 harness 启动失败**。也就是说 0.1.4 之前的版本在 dsh 0.2.x 上是有害的，不是"卡片不显示"这种程度。
+
+**当前验证状态**
+
+- **0.1.x 线**：实测工作（工具、卡片、注入、持久化都验过）
+- **0.2.x 线**：**激活尚未实测**。上表的差异是权威的（读 `.d.ts`），但"改完就能在 0.2.x 上跑起来"这件事我没有验证过——所以本插件**不声称** 0.2.x 支持。要补这一步，需要一套可运行的 0.2.0-rc.1 harness。
+
+---
+
 ## 配置
 
 配置写在 `$DSH_HOME\profiles\web\cordis.patch.yml` 里**本插件那一行**的 `config:` 之下。loader 只把这个子对象传给插件，写在外面的键会被静默忽略。

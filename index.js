@@ -76,6 +76,45 @@ export const SETTINGS_NAMESPACE = 'memory-loom'
 export const SettingsAnchor = z.object({})
 
 /**
+ * Register the settings anchor on the version lines that have one.
+ *
+ * The settings service was **replaced** between the 0.1.x and 0.2.x lines, and
+ * the difference is not cosmetic:
+ *
+ * - **0.1.x** — `ctx.settings.register(ns, schema, { applies })` exists, and the
+ *   Plugins configuration tab enumerates registered settings namespaces,
+ *   dispatching `settings.plugin.item` once per namespace. The card is keyed by
+ *   the namespace, so this call is what makes it render at all.
+ * - **0.2.x** — there is no `register`. `ctx.settings` is a `SettingsForms`
+ *   service whose namespaces are *profile entry ids* and whose pages are
+ *   generated from the plugin's own `Config`; `SettingsDescriptor.autoGenerate`
+ *   documents the policy. Nothing needs registering, and the browser slot
+ *   `settings.plugin.item` no longer exists anywhere in the tree (verified: zero
+ *   occurrences across all 254 `@deepseek-ai` packages at 0.2.0-rc.1).
+ *
+ * Hence the conditional. Calling the removed method would reject
+ * `Service.init`, and a tree entry that fails to activate does not merely lose
+ * this plugin's features — it can fail the surrounding boot. A missing anchor
+ * costs one card; a thrown `TypeError` can cost the harness.
+ *
+ * Feature detection rather than a version comparison on purpose: the packages
+ * are versioned independently on npm (their `latest` dist-tags currently point
+ * at unrelated `0.0.1-rc.x` builds), so probing the API is the only reliable
+ * test.
+ *
+ * @param ctx - a context whose `settings` service may be either shape.
+ * @returns whether an anchor was registered.
+ */
+export function registerSettingsAnchor(ctx) {
+  const settings = ctx?.settings
+  if (typeof settings?.register === 'function') {
+    settings.register(SETTINGS_NAMESPACE, SettingsAnchor, { applies: 'live' })
+    return true
+  }
+  return false
+}
+
+/**
  * Plugin configuration.
  *
  * Defaults are chosen so that an unconfigured install is useful but quiet: a
@@ -159,11 +198,10 @@ export class MemoryLoom extends Service {
     await store.open()
     this.store = store
 
-    // Registers the anchor the browser card hangs off. Without it the Plugins
-    // tab has no namespace named `memory-loom` to dispatch, so the card is never
-    // rendered — see SETTINGS_NAMESPACE above. Registered before the routes so a
-    // failure here is not masked by a working status endpoint.
-    this.ctx.settings.register(SETTINGS_NAMESPACE, SettingsAnchor, { applies: 'live' })
+    // Registers the anchor the browser card hangs off, on the version lines that
+    // have that mechanism. See registerSettingsAnchor() for why the call is
+    // conditional.
+    registerSettingsAnchor(this.ctx)
 
     this.ctx.systemPrompt.section({ name: SECTION, order: SECTION_ORDER, text: '' })
 
