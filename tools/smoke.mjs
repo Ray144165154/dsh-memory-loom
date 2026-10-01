@@ -600,6 +600,27 @@ check('the plugin never calls the removed settings.register unguarded', () => {
   )
 })
 
+console.log('\ndeclared compatibility covers both version lines')
+
+check('the engines range admits the 0.2.x line', () => {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  // A caret on a 0.1 prerelease reads as "0.1.x only", and npm semver does not
+  // match 0.2.0-rc.2 against it, so the floor has to stay open-ended.
+  assert.equal(pkg.engines.dsh, '>=0.1.5-rc.2')
+})
+
+check('no dsh peer dependency is clamped to the 0.1.x line', () => {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  const clamped = Object.entries(pkg.peerDependencies)
+    .filter(([name]) => name.startsWith('@deepseek-ai/dsh-'))
+    .filter(([, range]) => !range.startsWith('>='))
+  assert.deepEqual(
+    clamped,
+    [],
+    `these peers exclude 0.2.x under semver prerelease rules: ${JSON.stringify(clamped)}`,
+  )
+})
+
 check('the patch config keys are exactly the ones Config declares', async () => {
   let yaml
   try {
